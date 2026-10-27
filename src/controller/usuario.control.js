@@ -1,7 +1,7 @@
 
 const usuarioServicio = require('../services/usuario.servicio');
 
-// GET /usuarios
+// Obtener todos los usuarios
 const obtenerTodos = async (req, res) => {
     try {
         const usuarios = await usuarioServicio.obtenerTodos();
@@ -9,20 +9,22 @@ const obtenerTodos = async (req, res) => {
     } catch (error) {
         console.error('Error al obtener usuarios:', error.message);
         return res.status(500).json({
-            error: 'No se pudieron consultar los usuarios'
+            error: 'No se pudieron obtener los usuarios'
         });
     }
 };
 
-// GET /usuarios/:id
+// Buscar usuario por ID
 const buscarPorId = async (req, res) => {
-    const id = Number(req.params.id);
-
-    if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({ error: 'ID no válido' });
-    }
-
     try {
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({
+                error: 'ID no válido'
+            });
+        }
+
         const usuario = await usuarioServicio.buscarPorId(id);
 
         if (!usuario) {
@@ -35,22 +37,22 @@ const buscarPorId = async (req, res) => {
     } catch (error) {
         console.error('Error al buscar usuario:', error.message);
         return res.status(500).json({
-            error: 'No se pudo consultar el usuario'
+            error: 'No se pudo buscar el usuario'
         });
     }
 };
 
-// GET /usuarios/buscar?nombre=Isaac
+// Buscar usuarios por nombre
 const buscarPorNombre = async (req, res) => {
-    const nombre = req.query.nombre;
-
-    if (typeof nombre !== 'string' || !nombre.trim()) {
-        return res.status(400).json({
-            error: 'Debes indicar un nombre'
-        });
-    }
-
     try {
+        const nombre = req.query.nombre;
+
+        if (typeof nombre !== 'string' || !nombre.trim()) {
+            return res.status(400).json({
+                error: 'Debes indicar un nombre'
+            });
+        }
+
         const usuarios = await usuarioServicio.buscarPorNombre(
             nombre.trim()
         );
@@ -59,35 +61,18 @@ const buscarPorNombre = async (req, res) => {
     } catch (error) {
         console.error('Error al buscar por nombre:', error.message);
         return res.status(500).json({
-            error: 'No se pudieron buscar los usuarios'
+            error: 'No se pudo realizar la búsqueda'
         });
     }
 };
 
-// POST /usuarios
+// Crear usuario
 const crear = async (req, res) => {
-    const { nombre, email } = req.body || {};
-
-    if (
-        typeof nombre !== 'string' || !nombre.trim() ||
-        typeof email !== 'string' || !email.trim()
-    ) {
-        return res.status(400).json({
-            error: 'Nombre y email son obligatorios'
-        });
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-        return res.status(400).json({
-            error: 'Email no válido'
-        });
-    }
-
     try {
         const resultado = await usuarioServicio.crear(req.body);
 
         if (resultado.error) {
-            const estado = resultado.error === 'El correo ya está registrado'
+            const estado = resultado.error.includes('ya está registrado')
                 ? 409
                 : 400;
 
@@ -100,23 +85,25 @@ const crear = async (req, res) => {
     } catch (error) {
         console.error('Error al crear usuario:', error.message);
         return res.status(500).json({
-            error: 'No se pudo registrar el usuario'
+            error: 'No se pudo crear el usuario'
         });
     }
 };
 
-// PUT /usuarios/:id
+// Actualizar usuario completo (PUT)
 const actualizarCompleto = async (req, res) => {
-    const id = Number(req.params.id);
-
-    if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({ error: 'ID no válido' });
-    }
-
     try {
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({
+                error: 'ID no válido'
+            });
+        }
+
         const resultado = await usuarioServicio.actualizar(
             id,
-            req.body || {}
+            req.body
         );
 
         if (!resultado) {
@@ -126,7 +113,11 @@ const actualizarCompleto = async (req, res) => {
         }
 
         if (resultado.error) {
-            return res.status(400).json({
+            const estado = resultado.error.includes('ya está registrado')
+                ? 409
+                : 400;
+
+            return res.status(estado).json({
                 error: resultado.error
             });
         }
@@ -140,36 +131,20 @@ const actualizarCompleto = async (req, res) => {
     }
 };
 
-// PATCH /usuarios/:id
+// Actualizar usuario parcialmente (PATCH)
 const actualizarParcial = async (req, res) => {
-    const id = Number(req.params.id);
-    const datos = req.body || {};
-    const campos = Object.keys(datos);
-    const permitidos = [
-        'nombre',
-        'email',
-        'telefono',
-        'direccion',
-        'id_rol'
-    ];
-
-    if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({ error: 'ID no válido' });
-    }
-
-    if (
-        campos.length === 0 ||
-        campos.some(campo => !permitidos.includes(campo))
-    ) {
-        return res.status(400).json({
-            error: 'Envía al menos un campo válido para actualizar'
-        });
-    }
-
     try {
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({
+                error: 'ID no válido'
+            });
+        }
+
         const resultado = await usuarioServicio.actualizar(
             id,
-            datos,
+            req.body,
             true
         );
 
@@ -180,7 +155,11 @@ const actualizarParcial = async (req, res) => {
         }
 
         if (resultado.error) {
-            return res.status(400).json({
+            const estado = resultado.error.includes('ya está registrado')
+                ? 409
+                : 400;
+
+            return res.status(estado).json({
                 error: resultado.error
             });
         }
@@ -194,15 +173,17 @@ const actualizarParcial = async (req, res) => {
     }
 };
 
-// DELETE /usuarios/:id
+// Eliminar usuario
 const eliminar = async (req, res) => {
-    const id = Number(req.params.id);
-
-    if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({ error: 'ID no válido' });
-    }
-
     try {
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({
+                error: 'ID no válido'
+            });
+        }
+
         const eliminado = await usuarioServicio.eliminar(id);
 
         if (!eliminado) {

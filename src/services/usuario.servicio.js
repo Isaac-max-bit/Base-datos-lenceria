@@ -1,85 +1,176 @@
 
-let listaUsuarios = [
-    { id: 1, nombre: 'Isaac', email: 'isaac@gmail.com' },
-    { id: 2, nombre: 'Manuela', email: 'manuela@gmail.com' },
-    { id: 3, nombre: 'Estella', email: 'estella@gmail.com' }
-];
+const usuarioServicio = require('../services/usuario.servicio');
 
-let siguienteId = 4;
-
-const obtenerTodos = () => listaUsuarios;
-
-const buscarPorId = (id) =>
-    listaUsuarios.find(usuario => usuario.id === Number(id));
-
-const buscarPorNombre = (nombre) =>
-    listaUsuarios.filter(usuario =>
-        usuario.nombre.toLowerCase().includes(nombre.toLowerCase())
-    );
-
-const crear = (datos) => {
-    const { nombre, email } = datos;
-
-    if (listaUsuarios.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-        return { error: 'El correo ya está registrado' };
+// Obtener todos los usuarios
+const obtenerTodos = async (req, res, next) => {
+    try {
+        const usuarios = await usuarioServicio.obtenerTodos();
+        return res.status(200).json(usuarios);
+    } catch (error) {
+        next(error);
     }
-
-    const nuevoUsuario = {
-        id: siguienteId++,
-        nombre: nombre.trim(),
-        email: email.trim().toLowerCase()
-    };
-
-    listaUsuarios.push(nuevoUsuario);
-    return { usuario: nuevoUsuario };
 };
 
-const actualizar = (id, datos, parcial = false) => {
-    const usuario = buscarPorId(id);
+// Buscar usuario por ID
+const buscarPorId = async (req, res, next) => {
+    try {
+        const id = Number(req.params.id);
 
-    if (!usuario) return null;
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({ error: 'ID no válido' });
+        }
 
-    const { nombre, email } = datos;
+        const usuario = await usuarioServicio.buscarPorId(id);
 
-    if (!parcial && (!nombre || !email)) {
-        return { error: 'Nombre y email son obligatorios' };
+        if (!usuario) {
+            return res.status(404).json({
+                error: 'Usuario no encontrado'
+            });
+        }
+
+        return res.status(200).json(usuario);
+    } catch (error) {
+        next(error);
     }
+};
 
-    if (nombre !== undefined) {
+// Buscar usuarios por nombre
+const buscarPorNombre = async (req, res, next) => {
+    try {
+        const nombre = req.query.nombre;
+
         if (typeof nombre !== 'string' || !nombre.trim()) {
-            return { error: 'El nombre no es válido' };
+            return res.status(400).json({
+                error: 'Debes indicar un nombre'
+            });
         }
+
+        const usuarios = await usuarioServicio.buscarPorNombre(nombre);
+
+        return res.status(200).json(usuarios);
+    } catch (error) {
+        next(error);
     }
+};
 
-    if (email !== undefined) {
-        if (
-            typeof email !== 'string' ||
-            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-        ) {
-            return { error: 'El email no es válido' };
+// Crear usuario
+const crear = async (req, res, next) => {
+    try {
+        const resultado = await usuarioServicio.crear(req.body);
+
+        if (resultado.error) {
+            const estado = resultado.error === 'El correo ya está registrado'
+                ? 409
+                : 400;
+
+            return res.status(estado).json({
+                error: resultado.error
+            });
         }
 
-        const emailLimpio = email.trim().toLowerCase();
-        const duplicado = listaUsuarios.some(
-            u => u.id !== Number(id) && u.email.toLowerCase() === emailLimpio
+        return res.status(201).json(resultado.usuario);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Actualizar usuario completo (PUT)
+const actualizarCompleto = async (req, res, next) => {
+    try {
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({ error: 'ID no válido' });
+        }
+
+        const resultado = await usuarioServicio.actualizar(
+            id,
+            req.body,
+            false
         );
 
-        if (duplicado) return { error: 'El correo ya está registrado' };
+        if (!resultado) {
+            return res.status(404).json({
+                error: 'Usuario no encontrado'
+            });
+        }
+
+        if (resultado.error) {
+            const estado = resultado.error === 'El correo ya está registrado'
+                ? 409
+                : 400;
+
+            return res.status(estado).json({
+                error: resultado.error
+            });
+        }
+
+        return res.status(200).json(resultado.usuario);
+    } catch (error) {
+        next(error);
     }
-
-    if (nombre !== undefined) usuario.nombre = nombre.trim();
-    if (email !== undefined) usuario.email = email.trim().toLowerCase();
-
-    return { usuario };
 };
 
-const eliminar = (id) => {
-    const indice = listaUsuarios.findIndex(u => u.id === Number(id));
+// Actualizar usuario parcialmente (PATCH)
+const actualizarParcial = async (req, res, next) => {
+    try {
+        const id = Number(req.params.id);
 
-    if (indice === -1) return false;
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({ error: 'ID no válido' });
+        }
 
-    listaUsuarios.splice(indice, 1);
-    return true;
+        const resultado = await usuarioServicio.actualizar(
+            id,
+            req.body,
+            true
+        );
+
+        if (!resultado) {
+            return res.status(404).json({
+                error: 'Usuario no encontrado'
+            });
+        }
+
+        if (resultado.error) {
+            const estado = resultado.error === 'El correo ya está registrado'
+                ? 409
+                : 400;
+
+            return res.status(estado).json({
+                error: resultado.error
+            });
+        }
+
+        return res.status(200).json(resultado.usuario);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Eliminar usuario
+const eliminar = async (req, res, next) => {
+    try {
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({ error: 'ID no válido' });
+        }
+
+        const eliminado = await usuarioServicio.eliminar(id);
+
+        if (!eliminado) {
+            return res.status(404).json({
+                error: 'Usuario no encontrado'
+            });
+        }
+
+        return res.status(200).json({
+            mensaje: 'Usuario eliminado correctamente'
+        });
+    } catch (error) {
+        next(error);
+    }
 };
 
 module.exports = {
@@ -87,6 +178,7 @@ module.exports = {
     buscarPorId,
     buscarPorNombre,
     crear,
-    actualizar,
+    actualizarCompleto,
+    actualizarParcial,
     eliminar
 };
