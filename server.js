@@ -1,11 +1,11 @@
 require("dotenv").config();
 
-const express = require("express");
+import express, { json } from "express";
 const app = express();
 
-app.use(express.json());
+app.use(json());
 
-const usuariosRoutes = require("./routes/usuarios");
+import usuariosRoutes from "./routes/usuarios";
 
 app.get("/", (req, res) => {
     res.json({ mensaje: "Backend de lencería funcionando" });
