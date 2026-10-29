@@ -1,206 +1,45 @@
-
-const supabase = require('../../config/supabaseClient');
-
-const CAMPOS_PUBLICOS =
-    'id_usuario, nombre, email, telefono, direccion, fecha_registro, id_rol';
-
-const obtenerTodos = async () => {
-    const { data, error } = await supabase
-        .from('Usuario')
-        .select(CAMPOS_PUBLICOS)
-        .order('id_usuario', { ascending: true });
-
-    if (error) throw error;
-
-    return data;
-};
-
-const buscarPorId = async (id) => {
-    const { data, error } = await supabase
-        .from('Usuario')
-        .select(CAMPOS_PUBLICOS)
-        .eq('id_usuario', Number(id))
-        .maybeSingle();
-
-    if (error) throw error;
-
-    return data;
-};
-
-const buscarPorNombre = async (nombre) => {
-    const { data, error } = await supabase
-        .from('Usuario')
-        .select(CAMPOS_PUBLICOS)
-        .ilike('nombre', `%${nombre}%`)
-        .order('id_usuario', { ascending: true });
-
-    if (error) throw error;
-
-    return data;
-};
-
-const crear = async (datos) => {
-    const {
-        nombre,
-        email,
-        password_hash,
-        telefono,
-        direccion,
-        id_rol
-    } = datos;
-
-    if (typeof nombre !== 'string' || !nombre.trim()) {
-        return { error: 'El nombre es obligatorio' };
+// ============================================================
+// CLIENTE DE SUPABASE
+// Se crea una sola vez y se reutiliza en todo el proyecto.
+// Uso:  const supabase = require('../../config/supabaseClient');
+// ============================================================
+ 
+// Carga las variables del archivo .env (también sirve si este archivo
+// se ejecuta solo, por ejemplo desde probarSupabase.js)
+require('dotenv').config();
+ 
+const { createClient } = require('@supabase/supabase-js');
+ 
+// Se eliminan espacios accidentales al copiar y pegar las claves
+const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+ 
+// En un backend lo recomendable es la clave service_role (NUNCA en el frontend).
+// Si no está definida, se usa la clave anon.
+const supabaseKey = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    ''
+).trim();
+ 
+// Si falta algo, el servidor se detiene al iniciar con un mensaje claro,
+// en lugar de fallar más tarde con un error difícil de entender.
+if (!supabaseUrl) {
+    throw new Error('Falta la variable SUPABASE_URL en el archivo .env');
+}
+ 
+if (!supabaseKey) {
+    throw new Error(
+        'Falta SUPABASE_ANON_KEY (o SUPABASE_SERVICE_ROLE_KEY) en el archivo .env'
+    );
+}
+ 
+const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+        // Es un backend: no hay sesiones de usuario que guardar ni renovar
+        persistSession: false,
+        autoRefreshToken: false
     }
-
-    if (
-        typeof email !== 'string' ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-    ) {
-        return { error: 'El email no es válido' };
-    }
-
-    if (
-        password_hash !== undefined &&
-        password_hash !== null &&
-        typeof password_hash !== 'string'
-    ) {
-        return { error: 'El hash de la contraseña no es válido' };
-    }
-
-    const usuarioNuevo = {
-        nombre: nombre.trim(),
-        email: email.trim().toLowerCase()
-    };
-
-    if (password_hash) {
-        usuarioNuevo.password_hash = password_hash;
-    }
-
-    if (telefono !== undefined) {
-        usuarioNuevo.telefono = telefono;
-    }
-
-    if (direccion !== undefined) {
-        usuarioNuevo.direccion = direccion;
-    }
-
-    if (id_rol !== undefined) {
-        usuarioNuevo.id_rol = id_rol;
-    }
-
-    const { data, error } = await supabase
-        .from('Usuario')
-        .insert(usuarioNuevo)
-        .select(CAMPOS_PUBLICOS)
-        .single();
-
-    if (error) {
-        if (error.code === '23505') {
-            return { error: 'El correo ya está registrado' };
-        }
-
-        throw error;
-    }
-
-    return { usuario: data };
-};
-
-const actualizar = async (id, datos, parcial = false) => {
-    const campos = Object.keys(datos);
-    const permitidos = [
-        'nombre',
-        'email',
-        'telefono',
-        'direccion',
-        'id_rol',
-        'password_hash'
-    ];
-
-    if (
-        campos.length === 0 ||
-        campos.some(campo => !permitidos.includes(campo))
-    ) {
-        return { error: 'Debes enviar campos válidos para actualizar' };
-    }
-
-    if (!parcial && (!datos.nombre || !datos.email)) {
-        return { error: 'Nombre y email son obligatorios' };
-    }
-
-    if (datos.nombre !== undefined) {
-        if (
-            typeof datos.nombre !== 'string' ||
-            !datos.nombre.trim()
-        ) {
-            return { error: 'El nombre no es válido' };
-        }
-    }
-
-    if (datos.email !== undefined) {
-        if (
-            typeof datos.email !== 'string' ||
-            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.email.trim())
-        ) {
-            return { error: 'El email no es válido' };
-        }
-    }
-
-    if (
-        datos.password_hash !== undefined &&
-        datos.password_hash !== null &&
-        typeof datos.password_hash !== 'string'
-    ) {
-        return { error: 'El hash de la contraseña no es válido' };
-    }
-
-    const cambios = { ...datos };
-
-    if (cambios.nombre !== undefined) {
-        cambios.nombre = cambios.nombre.trim();
-    }
-
-    if (cambios.email !== undefined) {
-        cambios.email = cambios.email.trim().toLowerCase();
-    }
-
-    const { data, error } = await supabase
-        .from('Usuario')
-        .update(cambios)
-        .eq('id_usuario', Number(id))
-        .select(CAMPOS_PUBLICOS)
-        .maybeSingle();
-
-    if (error) {
-        if (error.code === '23505') {
-            return { error: 'El correo ya está registrado' };
-        }
-
-        throw error;
-    }
-
-    if (!data) return null;
-
-    return { usuario: data };
-};
-
-const eliminar = async (id) => {
-    const { data, error } = await supabase
-        .from('Usuario')
-        .delete()
-        .eq('id_usuario', Number(id))
-        .select('id_usuario');
-
-    if (error) throw error;
-
-    return data.length > 0;
-};
-
-module.exports = {
-    obtenerTodos,
-    buscarPorId,
-    buscarPorNombre,
-    crear,
-    actualizar,
-    eliminar
-};
+});
+ 
+module.exports = supabase;
+ 
