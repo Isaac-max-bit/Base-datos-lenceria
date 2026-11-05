@@ -72,8 +72,10 @@ app.use((err, req, res, next) => {
 // INICIAR SERVIDOR
 // ==========================================
 
-app.listen(PORT, () => {
-    console.log(`Servidor iniciado en http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Servidor iniciado en http://localhost:${PORT}`);
+    });
+}
 
 module.exports = app;
