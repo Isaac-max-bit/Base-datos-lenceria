@@ -1,96 +1,28 @@
-
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const usuarioControl = require('../controller/usuario.control');
+// Importamos el controlador (asegúrate de que la ruta del archivo sea correcta)
+const usuarioControlador = require("../controllers/usuarioController");
 
-// Validar que el ID sea un entero positivo
-const validarId = (req, res, next) => {
-    const id = Number(req.params.id);
+// GET /api/usuarios - Obtener todos los usuarios
+router.get("/", usuarioControlador.obtenerTodos);
 
-    if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({
-            error: 'El ID debe ser un número entero positivo'
-        });
-    }
+// GET /api/usuarios/buscar?nombre=... - Buscar por nombre (Debe ir antes de /:id para que Express no confunda "buscar" con un ID)
+router.get("/buscar", usuarioControlador.buscarPorNombre);
 
-    next();
-};
+// GET /api/usuarios/:id - Buscar usuario por ID
+router.get("/:id", usuarioControlador.buscarPorId);
 
-// Validar que el cuerpo de la petición sea un objeto JSON
-const validarBody = (req, res, next) => {
-    if (
-        !req.body ||
-        typeof req.body !== 'object' ||
-        Array.isArray(req.body) ||
-        Object.keys(req.body).length === 0
-    ) {
-        return res.status(400).json({
-            error: 'Debes enviar un objeto JSON con los datos del usuario'
-        });
-    }
+// POST /api/usuarios - Crear un usuario
+router.post("/", usuarioControlador.crear);
 
-    next();
-};
+// PUT /api/usuarios/:id - Actualización completa
+router.put("/:id", usuarioControlador.actualizarCompleto);
 
-// ==========================================
-// RUTAS DE CONSULTA
-// ==========================================
+// PATCH /api/usuarios/:id - Actualización parcial
+router.patch("/:id", usuarioControlador.actualizarParcial);
 
-// GET /usuarios
-// Obtener todos los usuarios
-router.get('/', usuarioControl.obtenerTodos);
-
-// GET /usuarios/buscar?nombre=Isaac
-// Buscar usuarios por nombre
-router.get('/buscar', usuarioControl.buscarPorNombre);
-
-// GET /usuarios/:id
-// Obtener un usuario por ID
-router.get('/:id', validarId, usuarioControl.buscarPorId);
-
-// ==========================================
-// RUTA DE CREACIÓN
-// ==========================================
-
-// POST /usuarios
-router.post(
-    '/',
-    validarBody,
-    usuarioControl.crear
-);
-
-// ==========================================
-// RUTAS DE ACTUALIZACIÓN
-// ==========================================
-
-// PUT /usuarios/:id
-// Actualizar el usuario completo
-router.put(
-    '/:id',
-    validarId,
-    validarBody,
-    usuarioControl.actualizarCompleto
-);
-
-// PATCH /usuarios/:id
-// Actualizar parcialmente el usuario
-router.patch(
-    '/:id',
-    validarId,
-    validarBody,
-    usuarioControl.actualizarParcial
-);
-
-// ==========================================
-// RUTA DE ELIMINACIÓN
-// ==========================================
-
-// DELETE /usuarios/:id
-router.delete(
-    '/:id',
-    validarId,
-    usuarioControl.eliminar
-);
+// DELETE /api/usuarios/:id - Eliminar usuario
+router.delete("/:id", usuarioControlador.eliminar);
 
 module.exports = router;
