@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const lenceriaControl = require('../controller/lenceria.control');
+const lenceriaControlador = require("../controller/lenceria.control");
 
 const validarId = (req, res, next) => {
     const id = Number(req.params.id);
@@ -30,11 +30,11 @@ const validarBody = (req, res, next) => {
     next();
 };
 
-router.get('/', lenceriaControl.obtenerTodos);
-router.get('/:id', validarId, lenceriaControl.buscarPorId);
-router.post('/', validarBody, lenceriaControl.crear);
-router.put('/:id', validarId, validarBody, lenceriaControl.actualizarCompleto);
-router.patch('/:id', validarId, validarBody, lenceriaControl.actualizarParcial);
-router.delete('/:id', validarId, lenceriaControl.eliminar);
+router.get('/', lenceriaControlador.obtenerTodos);
+router.get('/:id', validarId, lenceriaControlador.buscarPorId);
+router.post('/', validarBody, lenceriaControlador.crear);
+router.put('/:id', validarId, validarBody, lenceriaControlador.actualizarCompleto);
+router.patch('/:id', validarId, validarBody, lenceriaControlador.actualizarParcial);
+router.delete('/:id', validarId, lenceriaControlador.eliminar);
 
 module.exports = router;

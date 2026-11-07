@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 // Importamos el controlador (asegúrate de que la ruta del archivo sea correcta)
-const usuarioControlador = require("../controllers/usuarioController");
+const usuarioControlador = require("../controller/usuario.control");
 
 // GET /api/usuarios - Obtener todos los usuarios
 router.get("/", usuarioControlador.obtenerTodos);
