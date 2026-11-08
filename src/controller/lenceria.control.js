@@ -5,36 +5,7 @@
 
 const lenceriaServicio = require('../services/lenceria.servicio');
 
-/**
- * Valida y formatea un ID recibido por parámetro.
- * @param {any} valor - El valor del ID a validar.
- * @returns {number|null} Retorna el número entero positivo o null si no es válido.
- */
-const obtenerIdValido = (valor) => {
-    const id = Number(valor);
-    return Number.isInteger(id) && id > 0 ? id : null;
-};
-
-/**
- * Determina el código de estado HTTP según el tipo de error del servicio.
- * @param {Object} resultado - Objeto de resultado que puede contener la propiedad tipo.
- * @returns {number} Código HTTP (409 para conflictos, 400 para errores generales).
- */
-const estadoDeError = (resultado) =>
-    resultado.tipo === 'conflicto' ? 409 : 400;
-
-/**
- * Manejador unificado para errores internos del servidor (500).
- * @param {Object} res - Objeto de respuesta de Express.
- * @param {string} contexto - Descripción breve del error para la consola.
- * @param {string} mensajePublico - Mensaje amigable que se devuelve al cliente.
- * @param {Error} error - El objeto de error original atrapado.
- * @returns Respuesta HTTP JSON con código 500.
- */
-const errorInterno = (res, contexto, mensajePublico, error) => {
-    console.error(`${contexto}:`, error.message);
-    return res.status(500).json({ error: mensajePublico });
-};
+const { obtenerIdValido, estadoDeError, errorInterno } = require('../utils/respuestas');
 
 // ==========================================
 // CONTROLADORES DE RUTA

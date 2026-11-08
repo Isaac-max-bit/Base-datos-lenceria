@@ -1,9 +1,149 @@
+const bcrypt = require('bcryptjs');
 const supabase = require('../../config/supabaseClient');
 
-const TABLA = 'usuarios'; // Cambia a 'Usuario' si en tu BD está con mayúscula exacta
-const CAMPOS_PUBLICOS = 'id_usuario, nombre, email, telefono, direccion, fecha_registro, id_rol';
+// ⚠️ Nombre EXACTO de la tabla en Supabase (Postgres distingue mayúsculas
+// cuando la tabla se creó con comillas). Es el mismo estilo que 'Producto'.
+const TABLA = 'Usuario';
 
-// 1. Obtener todos los usuarios
+const CAMPOS_PUBLICOS =
+    'id_usuario, nombre, email, telefono, direccion, fecha_registro, id_rol';
+
+// Lo ÚNICO que el cliente puede enviar. Nunca id_rol, id_usuario,
+// fecha_registro ni password_hash: eso evita que alguien se haga admin.
+const CAMPOS_PERMITIDOS = ['nombre', 'email', 'password', 'telefono', 'direccion'];
+
+const ROL_CLIENTE = 2;          // todo usuario creado por la API es cliente
+const SALT_ROUNDS = 10;
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX_BYTES = 72;  // bcrypt ignora lo que pase de 72 bytes
+
+const CODIGO_UNICO = '23505';
+const CODIGO_LLAVE_FORANEA = '23503';
+const CODIGO_CHECK = '23514';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const MENSAJES = {
+    cuerpoInvalido: 'Debes enviar un objeto JSON con los datos del usuario',
+    sinCampos: 'Debes enviar al menos un campo para actualizar',
+    nombreObligatorio: 'El nombre es obligatorio',
+    emailObligatorio: 'El email es obligatorio',
+    passwordObligatoria: 'La contraseña es obligatoria',
+    nombreInvalido: 'El nombre no es válido',
+    emailInvalido: 'El email no tiene un formato válido',
+    passwordInvalida: `La contraseña debe tener entre ${PASSWORD_MIN} y ${PASSWORD_MAX_BYTES} caracteres`,
+    telefonoInvalido: 'El teléfono no es válido',
+    direccionInvalida: 'La dirección no es válida',
+    emailRepetido: 'El correo ya está registrado',
+    datosRechazados: 'La base de datos rechazó los valores enviados',
+    usuarioEnUso: 'No se puede eliminar el usuario porque tiene registros asociados'
+};
+
+const fallo = (mensaje, tipo = 'validacion') => ({ error: mensaje, tipo });
+
+const esObjeto = (valor) =>
+    typeof valor === 'object' && valor !== null && !Array.isArray(valor);
+
+// Texto opcional: null se conserva, cadena vacía pasa a null.
+const textoOpcional = (valor) => (valor === null ? null : valor.trim() || null);
+
+// Escapa % _ \ para que el texto buscado no actúe como comodín en ILIKE.
+const escaparLike = (texto) => texto.replace(/[\\%_]/g, '\\$&');
+
+// ------------------------------------------------------------
+// VALIDACIÓN
+// modo: 'crear' | 'completo' (PUT) | 'parcial' (PATCH)
+// ------------------------------------------------------------
+const validarYNormalizar = (datos, modo) => {
+    const valores = {};
+
+    if (modo !== 'parcial') {
+        if (datos.nombre === undefined) return { error: MENSAJES.nombreObligatorio };
+        if (datos.email === undefined) return { error: MENSAJES.emailObligatorio };
+    }
+    if (modo === 'crear' && datos.password === undefined) {
+        return { error: MENSAJES.passwordObligatoria };
+    }
+
+    if (datos.nombre !== undefined) {
+        if (typeof datos.nombre !== 'string' || !datos.nombre.trim()) {
+            return { error: modo === 'parcial' ? MENSAJES.nombreInvalido : MENSAJES.nombreObligatorio };
+        }
+        valores.nombre = datos.nombre.trim();
+    }
+
+    if (datos.email !== undefined) {
+        const email = typeof datos.email === 'string' ? datos.email.trim().toLowerCase() : '';
+        if (!EMAIL_REGEX.test(email)) return { error: MENSAJES.emailInvalido };
+        valores.email = email;
+    }
+
+    if (datos.password !== undefined) {
+        if (
+            typeof datos.password !== 'string' ||
+            datos.password.length < PASSWORD_MIN ||
+            Buffer.byteLength(datos.password, 'utf8') > PASSWORD_MAX_BYTES
+        ) {
+            return { error: MENSAJES.passwordInvalida };
+        }
+        valores.password = datos.password;
+    }
+
+    if (datos.telefono !== undefined) {
+        if (datos.telefono !== null && typeof datos.telefono !== 'string') {
+            return { error: MENSAJES.telefonoInvalido };
+        }
+        valores.telefono = textoOpcional(datos.telefono);
+    }
+
+    if (datos.direccion !== undefined) {
+        if (datos.direccion !== null && typeof datos.direccion !== 'string') {
+            return { error: MENSAJES.direccionInvalida };
+        }
+        valores.direccion = textoOpcional(datos.direccion);
+    }
+
+    return { valores };
+};
+
+// Valida, rechaza campos no permitidos y convierte password -> password_hash.
+// Devuelve { valores } o un objeto de error { error, tipo }.
+const prepararValores = async (datos, modo) => {
+    const noPermitidos = Object.keys(datos).filter((c) => !CAMPOS_PERMITIDOS.includes(c));
+    if (noPermitidos.length > 0) {
+        return fallo(`Campos no permitidos: ${noPermitidos.join(', ')}`);
+    }
+
+    const validacion = validarYNormalizar(datos, modo);
+    if (validacion.error) return fallo(validacion.error);
+
+    const { password, ...valores } = validacion.valores;
+
+    // Se hashea DESPUÉS de validar para no gastar CPU con datos inválidos.
+    if (password !== undefined) {
+        valores.password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+    }
+
+    // PUT = reemplazo completo: lo opcional que no llega se deja en null.
+    if (modo === 'completo') {
+        if (valores.telefono === undefined) valores.telefono = null;
+        if (valores.direccion === undefined) valores.direccion = null;
+    }
+
+    if (modo === 'crear') valores.id_rol = ROL_CLIENTE;
+
+    return { valores };
+};
+
+const traducirErrorBD = (error) => {
+    if (error.code === CODIGO_UNICO) return fallo(MENSAJES.emailRepetido, 'conflicto');
+    if (error.code === CODIGO_CHECK) return fallo(MENSAJES.datosRechazados);
+    return null;
+};
+
+// ------------------------------------------------------------
+// CONSULTAS
+// ------------------------------------------------------------
 const obtenerTodos = async () => {
     const { data, error } = await supabase
         .from(TABLA)
@@ -14,7 +154,6 @@ const obtenerTodos = async () => {
     return data;
 };
 
-// 2. Buscar usuario por ID
 const buscarPorId = async (id) => {
     const { data, error } = await supabase
         .from(TABLA)
@@ -26,61 +165,68 @@ const buscarPorId = async (id) => {
     return data;
 };
 
-// 3. Crear usuario
-const crear = async (datos) => {
-    const { nombre, email, password_hash, telefono, direccion, id_rol } = datos;
+// (Esta función faltaba: el controlador la llamaba y daba error 500)
+const buscarPorNombre = async (nombre) => {
+    const { data, error } = await supabase
+        .from(TABLA)
+        .select(CAMPOS_PUBLICOS)
+        .ilike('nombre', `%${escaparLike(nombre)}%`)
+        .order('id_usuario', { ascending: true });
 
-    // Validaciones básicas esenciales
-    if (!nombre || !email || !password_hash) {
-        return { error: 'Nombre, email y contraseña son obligatorios', tipo: 'validacion' };
-    }
+    if (error) throw error;
+    return data;
+};
+
+// ------------------------------------------------------------
+// ESCRITURA
+// ------------------------------------------------------------
+const crear = async (datos) => {
+    if (!esObjeto(datos)) return fallo(MENSAJES.cuerpoInvalido);
+
+    const preparado = await prepararValores(datos, 'crear');
+    if (preparado.error) return preparado;
 
     const { data, error } = await supabase
         .from(TABLA)
-        .insert([{ 
-            nombre, 
-            email, 
-            password_hash, 
-            telefono: telefono || null, 
-            direccion: direccion || null, 
-            id_rol: id_rol || 2 
-        }])
+        .insert(preparado.valores)
         .select(CAMPOS_PUBLICOS)
         .single();
 
     if (error) {
-        // Código 23505: Llave única duplicada (ej. email repetido)
-        if (error.code === '23505') {
-            return { error: 'El correo ya está registrado', tipo: 'conflicto' };
-        }
+        const conocido = traducirErrorBD(error);
+        if (conocido) return conocido;
         throw error;
     }
 
     return { usuario: data };
 };
 
-// 4. Actualizar usuario (PUT / PATCH)
-const actualizar = async (id, datos) => {
+// PUT (parcial = false): nombre y email obligatorios.
+// PATCH (parcial = true): solo cambia lo enviado.
+const actualizar = async (id, datos, parcial = false) => {
+    if (!esObjeto(datos)) return fallo(MENSAJES.cuerpoInvalido);
+    if (Object.keys(datos).length === 0) return fallo(MENSAJES.sinCampos);
+
+    const preparado = await prepararValores(datos, parcial ? 'parcial' : 'completo');
+    if (preparado.error) return preparado;
+
     const { data, error } = await supabase
         .from(TABLA)
-        .update(datos)
+        .update(preparado.valores)
         .eq('id_usuario', Number(id))
         .select(CAMPOS_PUBLICOS)
         .maybeSingle();
 
     if (error) {
-        if (error.code === '23505') {
-            return { error: 'El correo ya está registrado', tipo: 'conflicto' };
-        }
+        const conocido = traducirErrorBD(error);
+        if (conocido) return conocido;
         throw error;
     }
 
-    if (!data) return null; // Retorna null si el usuario no existe
-
+    if (!data) return null; // el usuario no existe
     return { usuario: data };
 };
 
-// 5. Eliminar usuario
 const eliminar = async (id) => {
     const { data, error } = await supabase
         .from(TABLA)
@@ -89,21 +235,20 @@ const eliminar = async (id) => {
         .select('id_usuario');
 
     if (error) {
-        // Código 23503: Violación de llave foránea (en uso por otra tabla)
-        if (error.code === '23503') {
-            return { error: 'No se puede eliminar el usuario porque tiene registros asociados', tipo: 'conflicto' };
+        if (error.code === CODIGO_LLAVE_FORANEA) {
+            return fallo(MENSAJES.usuarioEnUso, 'conflicto');
         }
         throw error;
     }
 
-    if (!data || data.length === 0) return null; // Si no existía
-
+    if (!data || data.length === 0) return null; // no existía
     return { eliminado: true };
 };
 
 module.exports = {
     obtenerTodos,
     buscarPorId,
+    buscarPorNombre,
     crear,
     actualizar,
     eliminar

@@ -9,6 +9,9 @@ const CAMPOS_PERMITIDOS = ['nombre', 'descripcion', 'precio', 'stock'];
 
 const CODIGO_LLAVE_FORANEA = '23503';
 const CODIGO_CHECK = '23514';
+// Otros errores de datos inválidos que NO deben salir como 500:
+// 23502 NOT NULL · 22003 número fuera de rango · 22001 texto demasiado largo
+const CODIGOS_DATOS_INVALIDOS = [CODIGO_CHECK, '23502', '22003', '22001'];
 
 const MENSAJES = {
     cuerpoInvalido: 'Debes enviar un objeto JSON con los datos del producto',
@@ -83,8 +86,16 @@ const validarYNormalizar = (datos, modo) => {
     return { valores };
 };
 
+// Devuelve un error si el cliente envía campos que no se pueden modificar.
+const validarCamposPermitidos = (datos) => {
+    const noPermitidos = Object.keys(datos).filter((c) => !CAMPOS_PERMITIDOS.includes(c));
+    return noPermitidos.length > 0
+        ? fallo(`Campos no permitidos: ${noPermitidos.join(', ')}`)
+        : null;
+};
+
 const traducirErrorBD = (error) => {
-    if (error.code === CODIGO_CHECK) return fallo(MENSAJES.datosRechazados);
+    if (CODIGOS_DATOS_INVALIDOS.includes(error.code)) return fallo(MENSAJES.datosRechazados);
     return null;
 };
 
@@ -116,6 +127,9 @@ const buscarPorId = async (id) => {
 const crear = async (datos) => {
     if (!esObjeto(datos)) return fallo(MENSAJES.cuerpoInvalido);
 
+    const noPermitidos = validarCamposPermitidos(datos);
+    if (noPermitidos) return noPermitidos;
+
     const validacion = validarYNormalizar(datos, 'crear');
     if (validacion.error) return fallo(validacion.error);
 
@@ -140,13 +154,16 @@ const actualizar = async (id, datos, parcial = false) => {
     const campos = Object.keys(datos);
     if (campos.length === 0) return fallo(MENSAJES.sinCampos);
 
-    const noPermitidos = campos.filter((c) => !CAMPOS_PERMITIDOS.includes(c));
-    if (noPermitidos.length > 0) {
-        return fallo(`Campos no permitidos: ${noPermitidos.join(', ')}`);
-    }
+    const noPermitidos = validarCamposPermitidos(datos);
+    if (noPermitidos) return noPermitidos;
 
     const validacion = validarYNormalizar(datos, parcial ? 'parcial' : 'completo');
     if (validacion.error) return fallo(validacion.error);
+
+    // PUT = reemplazo completo: la descripción es opcional, pero si no llega se limpia.
+    if (!parcial && validacion.valores.descripcion === undefined) {
+        validacion.valores.descripcion = null;
+    }
 
     const { data, error } = await supabase
         .from(TABLA)
