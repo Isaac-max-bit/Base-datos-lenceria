@@ -1,31 +1,83 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const usuarioControlador = require('../controller/usuario.control');
-const { validarId, validarBody } = require('../middlewares/validar');
+const usuarioControlador = require("../controller/usuario.control");
+const { validarId, validarBody } = require("../middlewares/validar");
+const {
+  autenticar,
+  requiereRol,
+  esMismoUsuarioOAdmin,
+} = require("../middlewares/auth");
 
-// Montado en app.js como /usuarios
+// GET /usuarios/perfil
+router.get("/perfil", autenticar, usuarioControlador.perfil);
 
-// GET /usuarios - Obtener todos los usuarios
-router.get('/', usuarioControlador.obtenerTodos);
+// PATCH /usuarios/perfil
+router.patch(
+  "/perfil",
+  autenticar,
+  validarBody,
+  usuarioControlador.actualizarPerfil,
+);
 
-// GET /usuarios/buscar?nombre=... - Debe ir ANTES de /:id, si no Express
-// tomaría "buscar" como si fuera un ID.
-router.get('/buscar', usuarioControlador.buscarPorNombre);
+// GET /usuarios
+router.get(
+  "/",
+  autenticar,
+  requiereRol("admin"),
+  usuarioControlador.obtenerTodos,
+);
 
-// GET /usuarios/:id - Buscar usuario por ID
-router.get('/:id', validarId, usuarioControlador.buscarPorId);
+// GET /usuarios/buscar
+router.get(
+  "/buscar",
+  autenticar,
+  requiereRol("admin"),
+  usuarioControlador.buscarPorNombre,
+);
 
-// POST /usuarios - Crear un usuario
-router.post('/', validarBody, usuarioControlador.crear);
+// GET /usuarios/:id
+router.get(
+  "/:id",
+  autenticar,
+  validarId,
+  esMismoUsuarioOAdmin,
+  usuarioControlador.buscarPorId,
+);
 
-// PUT /usuarios/:id - Actualización completa (nombre y email obligatorios)
-router.put('/:id', validarId, validarBody, usuarioControlador.actualizarCompleto);
+// POST /usuarios/login
+router.post("/login", validarBody, usuarioControlador.login);
 
-// PATCH /usuarios/:id - Actualización parcial
-router.patch('/:id', validarId, validarBody, usuarioControlador.actualizarParcial);
+// POST /usuarios
+router.post("/", validarBody, usuarioControlador.crear);
 
-// DELETE /usuarios/:id - Eliminar usuario
-router.delete('/:id', validarId, usuarioControlador.eliminar);
+// PUT /usuarios/:id
+router.put(
+  "/:id",
+  autenticar,
+  validarId,
+  esMismoUsuarioOAdmin,
+  validarBody,
+  usuarioControlador.actualizarCompleto,
+);
+
+// PATCH /usuarios/:id
+router.patch(
+  "/:id",
+  autenticar,
+  validarId,
+  esMismoUsuarioOAdmin,
+  validarBody,
+  usuarioControlador.actualizarParcial,
+);
+
+// DELETE /usuarios/:id
+router.delete(
+  "/:id",
+  autenticar,
+  validarId,
+  requiereRol("admin"),
+  usuarioControlador.eliminar,
+);
 
 module.exports = router;

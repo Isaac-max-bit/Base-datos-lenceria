@@ -5,7 +5,10 @@ const { createClient } = require('@supabase/supabase-js');
 const SUPABASE_URL =
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+// En el servidor conviene la service role key (omite RLS). Si no existe,
+// se usa la publishable/anon key, que necesita políticas RLS permisivas.
 const SUPABASE_KEY =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;

@@ -10,27 +10,63 @@ const router = express.Router();
 const lenceriaControlador = require("../controller/lenceria.control");
 
 const { validarId, validarBody } = require('../middlewares/validar');
+const { subirImagenes } = require('../middlewares/imagenes');
+const { autenticar, requiereRol } = require('../middlewares/auth');
+
+// Solo vendedores y administradores pueden crear, editar o borrar productos
+// y subir imágenes.
+const gestionarProductos = [autenticar, requiereRol('admin', 'vendedor')];
 
 // ==========================================
 // RUTAS DE LENCERÍA
 // ==========================================
 
-// Obtener todos los productos
+// Obtener todos los productos (público)
 router.get('/', lenceriaControlador.obtenerTodos);
 
-// Buscar un producto por su ID
+// Buscar productos por nombre. Debe ir ANTES de /:id para que
+// Express no interprete "buscar" como un ID.
+router.get('/buscar', lenceriaControlador.buscarPorTexto);
+
+// Buscar un producto por su ID (público)
 router.get('/:id', validarId, lenceriaControlador.buscarPorId);
 
-// Crear un nuevo producto
-router.post('/', validarBody, lenceriaControlador.crear);
+// Crear un nuevo producto (admin o vendedor)
+router.post('/', gestionarProductos, validarBody, lenceriaControlador.crear);
 
-// Actualizar un producto de forma completa
-router.put('/:id', validarId, validarBody, lenceriaControlador.actualizarCompleto);
+// Subir una o varias imágenes de un producto (admin o vendedor)
+router.post(
+    '/:id/imagenes',
+    gestionarProductos,
+    validarId,
+    subirImagenes,
+    lenceriaControlador.subirImagenes
+);
 
-// Actualizar un producto de forma parcial
-router.patch('/:id', validarId, validarBody, lenceriaControlador.actualizarParcial);
+// Actualizar un producto de forma completa (admin o vendedor)
+router.put(
+    '/:id',
+    gestionarProductos,
+    validarId,
+    validarBody,
+    lenceriaControlador.actualizarCompleto
+);
 
-// Eliminar un producto
-router.delete('/:id', validarId, lenceriaControlador.eliminar);
+// Actualizar un producto de forma parcial (admin o vendedor)
+router.patch(
+    '/:id',
+    gestionarProductos,
+    validarId,
+    validarBody,
+    lenceriaControlador.actualizarParcial
+);
+
+// Eliminar un producto (admin o vendedor)
+router.delete(
+    '/:id',
+    gestionarProductos,
+    validarId,
+    lenceriaControlador.eliminar
+);
 
 module.exports = router;
