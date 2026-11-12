@@ -35,6 +35,8 @@ const crear = async (datos) => {
         return { error: 'Nombre, email y contraseña son obligatorios', tipo: 'validacion' };
     }
 
+    console.log("Pasa la validacion, linea 38")
+
     const { data, error } = await supabase
         .from(TABLA)
         .insert([{ 
@@ -55,6 +57,8 @@ const crear = async (datos) => {
         }
         throw error;
     }
+
+    console.log(data);
 
     return { usuario: data };
 };

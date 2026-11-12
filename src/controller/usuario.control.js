@@ -107,6 +107,7 @@ const buscarPorNombre = async (req, res) => {
 // POST /usuarios
 // ------------------------------------------------------------
 const crear = async (req, res) => {
+    console.log("Controlador:"+req.body);
     try {
         const resultado = await usuarioServicio.crear(req.body);
  
