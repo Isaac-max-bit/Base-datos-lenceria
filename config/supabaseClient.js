@@ -1,25 +1,70 @@
-const { createClient } = require('@supabase/supabase-js');
 
-// Las variables de entorno las carga src/app.js con dotenv (un solo lugar).
-// Se aceptan los nombres nuevos y los antiguos para que tu .env actual siga funcionando.
+/**
+ * ==========================================================
+ * CONFIGURACIÓN DEL CLIENTE DE SUPABASE
+ * Proyecto: Lencería Luxury
+ * Backend: Node.js + Express
+ * Base de datos: PostgreSQL (Supabase)
+ * ==========================================================
+ */
+
+// 1. Importar Supabase
+const { createClient } = require("@supabase/supabase-js");
+
+
+// ==========================================================
+// 2. OBTENER VARIABLES DE ENTORNO
+// ==========================================================
+
+// URL del proyecto Supabase
 const SUPABASE_URL =
-    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-// En el servidor conviene la service role key (omite RLS). Si no existe,
-// se usa la publishable/anon key, que necesita políticas RLS permisivas.
+
+// Clave pública de Supabase
 const SUPABASE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-    throw new Error('Faltan SUPABASE_URL y/o SUPABASE_KEY en el archivo .env');
+
+// ==========================================================
+// 3. VALIDAR LAS CREDENCIALES
+// ==========================================================
+
+if (!SUPABASE_URL) {
+    throw new Error(
+        "ERROR: No se encontró SUPABASE_URL en el archivo .env"
+    );
 }
 
-// En un backend no hay sesión de navegador que guardar ni renovar.
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
-});
+if (!SUPABASE_KEY) {
+    throw new Error(
+        "ERROR: No se encontró la clave de Supabase en el archivo .env"
+    );
+}
+
+
+// ==========================================================
+// 4. CREAR CLIENTE DE SUPABASE
+// ==========================================================
+
+const supabase = createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+        }
+    }
+);
+
+
+// ==========================================================
+// 5. EXPORTAR CLIENTE
+// ==========================================================
 
 module.exports = supabase;
