@@ -55,6 +55,8 @@ const lenceriaRoute = require("./routes/lenceria.route");
 
 const carritoRoute = require("./routes/carrito.route");
 
+const pedidoRoute = require("./routes/pedido.route");
+
 const dashboardRoute = require("./routes/dashboard.route");
 
 
@@ -174,6 +176,8 @@ app.get("/", (req, res) => {
 
             pedidos: "/carrito/pedidos",
 
+            pedidoInvitado: "POST /pedidos/invitado",
+
             dashboard: "/api/dashboard"
 
         }
@@ -205,6 +209,13 @@ app.use(
 app.use(
     "/carrito",
     carritoRoute
+);
+
+
+// PEDIDOS SIN CUENTA (INVITADOS)
+app.use(
+    "/pedidos",
+    pedidoRoute
 );
 
 

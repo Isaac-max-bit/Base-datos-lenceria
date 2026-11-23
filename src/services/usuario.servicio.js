@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const { obtenerSupabaseAdmin } = require("../../config/supabaseAdmin");
+const { HASH_INVITADO } = require("../utils/invitado");
 
 // ⚠️ Nombre EXACTO de la tabla en Supabase (Postgres distingue mayúsculas
 // cuando la tabla se creó con comillas). Es el mismo estilo que 'Producto'.
@@ -297,8 +298,35 @@ const buscarPorNombre = async (nombre) => {
 // ------------------------------------------------------------
 // ESCRITURA
 // ------------------------------------------------------------
+// Un invitado que compró sin cuenta puede crear su cuenta después
+// con el mismo correo. En vez de rechazarlo ("correo ya registrado")
+// se "reclama" la fila del invitado y se le pone su contraseña.
+const reclamarInvitado = async (valores) => {
+  const { data, error } = await db()
+    .from(TABLA)
+    .select("id_usuario, password_hash")
+    .eq("email", valores.email)
+    .maybeSingle();
+
+  if (error || !data || data.password_hash !== HASH_INVITADO) return null;
+
+  const { data: actualizado, error: errorUpdate } = await db()
+    .from(TABLA)
+    .update({
+      nombre: valores.nombre,
+      password_hash: valores.password_hash,
+      id_rol: valores.id_rol,
+    })
+    .eq("id_usuario", data.id_usuario)
+    .select(CAMPOS_PUBLICOS)
+    .single();
+
+  if (errorUpdate) throw errorUpdate;
+
+  return { usuario: normalizarUsuario(actualizado) };
+};
+
 const crear = async (datos) => {
-  console.log("📥 DATOS RECIBIDOS DESDE LA WEB:", datos);
   if (!esObjeto(datos)) return fallo(MENSAJES.cuerpoInvalido);
 
   const preparado = await prepararValores(datos, "crear");
@@ -311,6 +339,11 @@ const crear = async (datos) => {
     .single();
 
   if (error) {
+    if (error.code === CODIGO_UNICO) {
+      const reclamado = await reclamarInvitado(preparado.valores);
+      if (reclamado) return reclamado;
+    }
+
     const conocido = traducirErrorBD(error);
     if (conocido) return conocido;
     throw error;

@@ -10,6 +10,9 @@ const { obtenerSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const TABLA = 'Carrito';
 
+// Estado inicial de un pedido recién confirmado (tabla EstadoPedido).
+const ESTADO_PENDIENTE = 1;
+
 const CAMPOS = `
     id_carrito, usuario_id, variante_id, cantidad,
     VarianteProducto (
@@ -256,9 +259,10 @@ const confirmar = async (usuarioId) => {
         .insert({
             usuario_id: usuarioId,
             fecha: new Date().toISOString(),
-            total: carrito.total
+            total: carrito.total,
+            id_estado: ESTADO_PENDIENTE
         })
-        .select('id_pedido, usuario_id, fecha, total')
+        .select('id_pedido, usuario_id, fecha, total, id_estado')
         .single();
 
     if (errorPedido) throw errorPedido;

@@ -74,7 +74,12 @@ const requiereRol = (...roles) => (req, res, next) => {
         return res.status(401).json({ error: 'Debes iniciar sesión' });
     }
 
-    if (!roles.includes(req.usuario.rol)) {
+    // El rol se guarda en la base como "ADMIN" o "CLIENTE"; se compara sin
+    // distinguir mayúsculas para no bloquear cuentas válidas.
+    const rolActual = String(req.usuario.rol || '').toLowerCase();
+    const rolesPermitidos = roles.map((rol) => String(rol).toLowerCase());
+
+    if (!rolesPermitidos.includes(rolActual)) {
         return res.status(403).json({
             error: 'No tienes permisos para realizar esta acción'
         });
@@ -94,7 +99,9 @@ const esMismoUsuarioOAdmin = (req, res, next) => {
 
     const id = Number(req.params.id);
 
-    if (req.usuario.id_usuario === id || req.usuario.rol === 'admin') {
+    const esAdmin = String(req.usuario.rol || '').toLowerCase() === 'admin';
+
+    if (req.usuario.id_usuario === id || esAdmin) {
         return next();
     }
 
