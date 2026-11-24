@@ -285,7 +285,10 @@ const obtenerProductosBajoStock = conAdmin(async (admin, umbral = 5, limite = 20
 const obtenerPedidosRecientes = conAdmin(async (admin, limite = 10) => {
     const { data, error } = await admin
         .from('Pedido')
-        .select('id_pedido, fecha, total, usuario_id, Usuario ( nombre, email )')
+        .select(
+            'id_pedido, fecha, total, usuario_id, id_estado, ' +
+            'Usuario ( nombre, email ), EstadoPedido ( nombre )'
+        )
         .order('fecha', { ascending: false })
         .order('id_pedido', { ascending: false })
         .limit(limite);
@@ -300,6 +303,8 @@ const obtenerPedidosRecientes = conAdmin(async (admin, limite = 10) => {
             fecha: pedido.fecha,
             total: Number(pedido.total) || 0,
             usuario_id: pedido.usuario_id,
+            id_estado: pedido.id_estado ?? null,
+            estado: unico(pedido.EstadoPedido)?.nombre ?? null,
             cliente: usuario?.nombre ?? null,
             email: usuario?.email ?? null
         };
@@ -361,37 +366,27 @@ const obtenerVentasTotales = conAdmin(async (admin, desde = null, hasta = null) 
 
 // ------------------------------------------------------------
 // 9. Pedidos por estado
-//    Requiere la columna "estado" en Pedido. Si no existe, se avisa.
+//    Pedido.id_estado -> EstadoPedido.nombre
 // ------------------------------------------------------------
 
-const CODIGO_COLUMNA_INEXISTENTE = '42703';
-
 const obtenerPedidosPorEstado = conAdmin(async (admin) => {
-    let pedidos;
-
-    try {
-        pedidos = await leerTodo(() =>
-            admin
-                .from('Pedido')
-                .select('id_pedido, estado, total')
-                .order('id_pedido', { ascending: true })
-        );
-    } catch (error) {
-        if (error?.code === CODIGO_COLUMNA_INEXISTENTE) {
-            return fallo(
-                'La tabla Pedido no tiene la columna "estado". Agrégala en Supabase para usar este reporte.',
-                'servidor'
-            );
-        }
-
-        throw error;
-    }
+    const pedidos = await leerTodo(() =>
+        admin
+            .from('Pedido')
+            .select('id_pedido, total, id_estado, EstadoPedido ( nombre )')
+            .order('id_pedido', { ascending: true })
+    );
 
     const porEstado = new Map();
 
     for (const pedido of pedidos) {
-        const estado = pedido.estado ?? 'sin_estado';
-        const acumulado = porEstado.get(estado) || { estado, pedidos: 0, ingresos: 0 };
+        const estado = unico(pedido.EstadoPedido)?.nombre ?? 'SIN ESTADO';
+        const acumulado = porEstado.get(estado) || {
+            id_estado: pedido.id_estado ?? null,
+            estado,
+            pedidos: 0,
+            ingresos: 0
+        };
 
         acumulado.pedidos += 1;
         acumulado.ingresos += Number(pedido.total) || 0;

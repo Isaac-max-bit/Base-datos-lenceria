@@ -41,6 +41,9 @@ const fallo = (mensaje, tipo = 'validacion') => ({ error: mensaje, tipo });
 
 const esEnteroPositivo = (valor) => Number.isInteger(valor) && valor > 0;
 
+// Un embed de Supabase puede llegar como objeto o como arreglo de un elemento.
+const unico = (valor) => (Array.isArray(valor) ? valor[0] ?? null : valor ?? null);
+
 const ordenarImagenes = (imagenes) =>
     [...imagenes].sort((a, b) => {
         if (Boolean(a.es_principal) !== Boolean(b.es_principal)) {
@@ -338,7 +341,8 @@ const historial = async (usuarioId) => {
     const { data, error } = await admin
         .from('Pedido')
         .select(`
-            id_pedido, fecha, total,
+            id_pedido, fecha, total, id_estado,
+            EstadoPedido ( nombre ),
             DetallePedido (
                 id_detalle, cantidad, precio_unitario, subtotal,
                 VarianteProducto (
@@ -380,6 +384,8 @@ const historial = async (usuarioId) => {
             id_pedido: pedido.id_pedido,
             fecha: pedido.fecha,
             total: pedido.total,
+            id_estado: pedido.id_estado ?? null,
+            estado: unico(pedido.EstadoPedido)?.nombre ?? null,
             items,
             cantidad: items.reduce((suma, item) => suma + (Number(item.cantidad) || 0), 0)
         };
