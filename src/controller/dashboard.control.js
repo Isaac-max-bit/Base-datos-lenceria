@@ -165,6 +165,15 @@ const obtenerVentasPorDia = crearControlador({
     leerParametros: conEntero('dias', 'Los días', 30, 1, 365)
 });
 
+// GET /api/dashboard/pedidos-por-dia?dias=7
+// Igual que ventas-por-dia pero sin ingresos (disponible para vendedores).
+const obtenerPedidosPorDia = crearControlador({
+    servicio: dashboardServicio.obtenerPedidosPorDia,
+    mensaje: 'Pedidos por día obtenidos correctamente',
+    mensajeError: 'No se pudieron obtener los pedidos por día',
+    leerParametros: conEntero('dias', 'Los días', 7, 1, 365)
+});
+
 // GET /api/dashboard/ventas-por-categoria
 const obtenerVentasPorCategoria = crearControlador({
     servicio: dashboardServicio.obtenerVentasPorCategoria,
@@ -189,6 +198,7 @@ module.exports = {
     obtenerVentasPorMes,
     obtenerUsuariosNuevos,
     obtenerVentasPorDia,
+    obtenerPedidosPorDia,
     obtenerVentasPorCategoria,
     obtenerUsuariosPorRol
 };

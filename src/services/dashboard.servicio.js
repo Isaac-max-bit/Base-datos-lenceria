@@ -188,6 +188,19 @@ const obtenerVentasPorDia = conAdmin(async (admin, dias = 30) => {
     };
 });
 
+// Igual que ventas-por-dia, pero sin ingresos. Es la versión que pueden
+// consultar los vendedores para su gráfica de pedidos.
+const obtenerPedidosPorDia = conAdmin(async (admin, dias = 7) => {
+    const { zonaHoraria, totalPedidos, serie } = await obtenerVentasPorDia(dias);
+
+    return {
+        dias,
+        zonaHoraria,
+        totalPedidos,
+        serie: serie.map(({ fecha, pedidos }) => ({ fecha, pedidos }))
+    };
+});
+
 // ------------------------------------------------------------
 // 3. Productos más vendidos
 // ------------------------------------------------------------
@@ -493,6 +506,7 @@ module.exports = {
     obtenerVentasPorMes,
     obtenerUsuariosNuevos,
     obtenerVentasPorDia,
+    obtenerPedidosPorDia,
     obtenerVentasPorCategoria,
     obtenerUsuariosPorRol
 };

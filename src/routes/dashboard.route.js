@@ -14,28 +14,35 @@ router.get('/', (req, res) => {
     });
 });
 
-// Todo lo que sigue exige sesión de administrador.
-router.use(autenticar, requiereRol('admin'));
+// Todo lo que sigue exige sesión iniciada.
+router.use(autenticar);
 
-// Resumen general
-router.get('/resumen', dashboardControl.obtenerResumen);
+// Operación diaria: administradores y vendedores.
+const operacion = requiereRol('admin', 'vendedor');
 
-// Ventas
-router.get('/ventas-totales', dashboardControl.obtenerVentasTotales);
-router.get('/ventas-por-mes', dashboardControl.obtenerVentasPorMes);
-router.get('/ventas-por-dia', dashboardControl.obtenerVentasPorDia);
-router.get('/ventas-por-categoria', dashboardControl.obtenerVentasPorCategoria);
+// Dinero, clientes y reportes históricos: solo administradores.
+const soloAdmin = requiereRol('admin');
 
-// Pedidos
-router.get('/pedidos-por-estado', dashboardControl.obtenerPedidosPorEstado);
-router.get('/pedidos-recientes', dashboardControl.obtenerPedidosRecientes);
+// Resumen general (incluye ingresos y ticket promedio).
+router.get('/resumen', soloAdmin, dashboardControl.obtenerResumen);
 
-// Productos
-router.get('/productos-bajo-stock', dashboardControl.obtenerProductosBajoStock);
-router.get('/productos-mas-vendidos', dashboardControl.obtenerProductosMasVendidos);
+// Ventas (todas incluyen montos en dinero).
+router.get('/ventas-totales', soloAdmin, dashboardControl.obtenerVentasTotales);
+router.get('/ventas-por-mes', soloAdmin, dashboardControl.obtenerVentasPorMes);
+router.get('/ventas-por-dia', soloAdmin, dashboardControl.obtenerVentasPorDia);
+router.get('/ventas-por-categoria', soloAdmin, dashboardControl.obtenerVentasPorCategoria);
 
-// Usuarios
-router.get('/usuarios-nuevos', dashboardControl.obtenerUsuariosNuevos);
-router.get('/usuarios-por-rol', dashboardControl.obtenerUsuariosPorRol);
+// Pedidos: también los usa el vendedor para despachar.
+router.get('/pedidos-por-estado', operacion, dashboardControl.obtenerPedidosPorEstado);
+router.get('/pedidos-recientes', operacion, dashboardControl.obtenerPedidosRecientes);
+router.get('/pedidos-por-dia', operacion, dashboardControl.obtenerPedidosPorDia);
+
+// Productos: inventario y más vendidos.
+router.get('/productos-bajo-stock', operacion, dashboardControl.obtenerProductosBajoStock);
+router.get('/productos-mas-vendidos', operacion, dashboardControl.obtenerProductosMasVendidos);
+
+// Usuarios: solo administradores.
+router.get('/usuarios-nuevos', soloAdmin, dashboardControl.obtenerUsuariosNuevos);
+router.get('/usuarios-por-rol', soloAdmin, dashboardControl.obtenerUsuariosPorRol);
 
 module.exports = router;

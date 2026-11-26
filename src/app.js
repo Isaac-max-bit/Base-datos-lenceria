@@ -53,6 +53,8 @@ const usuarioRoute = require("./routes/usuario.route");
 
 const lenceriaRoute = require("./routes/lenceria.route");
 
+const categoriaRoute = require("./routes/categoria.route");
+
 const carritoRoute = require("./routes/carrito.route");
 
 const pedidoRoute = require("./routes/pedido.route");
@@ -172,6 +174,8 @@ app.get("/", (req, res) => {
 
             subirImagen: "POST /productos/:id/imagenes",
 
+            categorias: "/categorias",
+
             carrito: "/carrito",
 
             pedidos: "/carrito/pedidos",
@@ -202,6 +206,13 @@ app.use(
 app.use(
     "/productos",
     lenceriaRoute
+);
+
+
+// CATEGORÍAS DE PRODUCTOS
+app.use(
+    "/categorias",
+    categoriaRoute
 );
 
 

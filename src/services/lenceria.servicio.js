@@ -1,4 +1,5 @@
 const supabase = require('../../config/supabaseClient');
+const { obtenerSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const TABLA = 'Producto';
 
@@ -49,10 +50,20 @@ const MENSAJES = {
     tipoNoExiste: 'El tipo de producto no existe',
     datosRechazados: 'La base de datos rechazó los valores enviados',
     productoEnUso:
-        'No se puede eliminar el producto porque tiene registros asociados'
+        'No se puede eliminar el producto porque tiene registros asociados',
+    sinServiceRole:
+        'Falta SUPABASE_SERVICE_ROLE_KEY en el .env del backend. Es necesaria para crear, editar o eliminar productos.'
 };
 
 const fallo = (mensaje, tipo = 'validacion') => ({ error: mensaje, tipo });
+
+// Las lecturas usan la clave pública. Las escrituras necesitan la service
+// role: RLS permite leer Producto, pero no actualizarlo ni borrarlo.
+const clienteEscritura = () => {
+    const admin = obtenerSupabaseAdmin();
+    if (!admin) return fallo(MENSAJES.sinServiceRole, 'servidor');
+    return { admin };
+};
 
 const esObjeto = (valor) =>
     typeof valor === 'object' && valor !== null && !Array.isArray(valor);
@@ -245,7 +256,10 @@ const crear = async (datos) => {
     const validacion = validarYNormalizar(datos, 'crear');
     if (validacion.error) return fallo(validacion.error);
 
-    const { data, error } = await supabase
+    const cliente = clienteEscritura();
+    if (cliente.error) return cliente;
+
+    const { data, error } = await cliente.admin
         .from(TABLA)
         .insert(validacion.valores)
         .select(CAMPOS_PUBLICOS)
@@ -277,7 +291,10 @@ const actualizar = async (id, datos, parcial = false) => {
         validacion.valores.descripcion = null;
     }
 
-    const { data, error } = await supabase
+    const cliente = clienteEscritura();
+    if (cliente.error) return cliente;
+
+    const { data, error } = await cliente.admin
         .from(TABLA)
         .update(validacion.valores)
         .eq('id_producto', Number(id))
@@ -295,7 +312,10 @@ const actualizar = async (id, datos, parcial = false) => {
 };
 
 const eliminar = async (id) => {
-    const { data, error } = await supabase
+    const cliente = clienteEscritura();
+    if (cliente.error) return cliente;
+
+    const { data, error } = await cliente.admin
         .from(TABLA)
         .delete()
         .eq('id_producto', Number(id))
